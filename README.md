@@ -1,6 +1,6 @@
 # Proxmox Linstor Talos HCI Cluster
 ## Introduction
-A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node as witness which can host both VM (Virtual Machine) and Kubernetes workload based on:
+A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node (as witness + backup server) which can host both VM (Virtual Machine) and Kubernetes workload based on:
 - Promox (Compute)
 - Linstor (Storage)
 - Talos Linux (Kubernetes Cluster)
