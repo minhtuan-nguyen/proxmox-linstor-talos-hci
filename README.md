@@ -1,40 +1,107 @@
-# Proxmox Talos HCI Cluster
+# Proxmox Linstor Talos HCI Cluster
 ## Introduction
-A fully working 03 nodes HCI (Hyper Converged Infrastructure) which can host both VM (Virtual Machine) and Kubernetes workload based on:
+A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node as witness which can host both VM (Virtual Machine) and Kubernetes workload based on:
 - Promox (Compute)
-- Ceph (Storage - Included with Proxmox)
+- Linstor (Storage)
 - Talos Linux (Kubernetes Cluster)
 - Cilium (CNI plugin for Kubernetes)
 ## Proxmox Installation
 * Hardware Nodes
   The test environment consists of 03 HPE servers
   - Proxmox is installed on a boot device `/dev/sda`
-  - The rest of the disks used for Ceph is configured in HBA mode (pass-through mode)
+  - The rest of the disks used for Linstor in RAID 10 setup
   - Network overview  
-    ![image](https://github.com/user-attachments/assets/99f8a3ef-9c04-4f60-b352-bdeb30cf6e6b)  
-* Setup Proxmox Network  
-  - **Management Network**: 2x 1Gbps connections in active-passive mode
-  - **Ceph Public**: 2 x 10Gbps connections in LACP mode. This network is where the clients (k8s cluster in this case) will connect for persistence volume.  
-  - **VM Traffic***: 2 x 10Gbps connections in LACP mode.  
-  ![image](https://github.com/user-attachments/assets/95a3b3a0-f92d-4272-84b3-69905d780944)  
+    ![image](https://github.com/user-attachments/assets/eb9bcdd1-eb65-4dc2-b7d5-c277c0a5b9f4)
+
+* Setup Proxmox Network
+  To make the setup more light-weight, management and VM traffic will be combined 
+  - **Management Network & VM Traffic**: 2x 1Gbps connections in LACP mode
+  - **DRBD Sync Traffic**: 2 x 10Gbps connections. To improve synchronization performance, RDMA will be used. 
+  ![image](https://github.com/user-attachments/assets/d385b586-51b2-48c9-96cc-3db03c5a786c)
+
 * Add 03 nodes to cluster
   Configure Proxmox cluster is a very straight forward process. Link to officical document: https://pve.proxmox.com/wiki/Cluster_Manager
-  ![image](https://github.com/user-attachments/assets/83dadb0a-eb40-4932-863a-24cc07849179)
+  ![image](https://github.com/user-attachments/assets/dc9a67e2-211a-4913-abf5-9b76d79fc868)
+**Note:** The cluster consists of 03 nodes but only 02 nodes will have DRBD Storage Sync, third node is only for witness  
+
 * Configure HA  
-  ![image](https://github.com/user-attachments/assets/74f7c090-a64f-4397-8fcf-e042229a963b)
-## Ceph Installation  
-Configure Ceph cluster is pretty easy to follow: https://pve.proxmox.com/wiki/Deploy_Hyper-Converged_Ceph_Cluster  
+  ![image](https://github.com/user-attachments/assets/a1e33a38-a07d-4c83-bbe8-d0283ec2d891)
+
+## Linstor Installation
+Linstor installation is available here: https://pve.proxmox.com/wiki/Deploy_Hyper-Converged_Ceph_Cluster](https://linbit.com/blog/setting-up-highly-available-storage-for-proxmox-using-linstor-the-linbit-gui/?utm_term=&utm_campaign=PM+%7C+US&utm_source=adwords&utm_medium=ppc&hsa_acc=4220519389&hsa_cam=20773050617&hsa_grp=&hsa_ad=&hsa_src=x&hsa_tgt=&hsa_kw=&hsa_mt=&hsa_net=adwords&hsa_ver=3&gad_source=1&gad_campaignid=21195166738&gclid=Cj0KCQjwmK_CBhCEARIsAMKwcD7N0_7A1CZ8ROq0k6rHyE67DUJqUlxXTalTFIA_rcEWAkVufrxqu1waArLnEALw_wcB)  
 * Storage Pools:  
-  `vm-storage`: for storing VM disks  
+  `proxmox-storage`: for storing VM disks  
   `k8s-storage`: providing persistent volume for Kubernetes cluster  
-* OSDs:
-  ![image](https://github.com/user-attachments/assets/018eb10f-2e84-46bb-a4f2-c68d5133e182)
+* Linstor overview  
+ ![image](https://github.com/user-attachments/assets/82517d24-2852-4766-8515-a953b83a38b1)
 
-* Monitor:
-  ![image](https://github.com/user-attachments/assets/532f8841-1ff0-4016-b50d-b5495398eb59)  
+* RDMA Setup
+````
+  # Install necessary RDMA packages
+  apt -y install rdma-core
+  apt -y install infiniband-diags ibverbs-providers ibverbs-utils
+  # Following commands can be used to check supported RDMA devices
+  ibv_devices
+    device                 node GUID
+    ------              ----------------
+    rocep18s0f0         5eba2cfffeb52f9c
+    rocep18s0f1         5eba2cfffeb52f9d
+    rocep55s0f0         5eba2cfffe62b4f0
+    rocep55s0f1         5eba2cfffe62b4f8
+  # Test RDMA traffic before using it for DRBD Sync
+  # On one of the node - server side
+  ib_send_bw -d {rdma_interface} -i 1 -F --report_gbits
+  
+  ************************************
+  * Waiting for client to connect... *
+  ************************************
+  # On one of the node - client side
+  ib_send_bw -d {rdma_interface} -i 1 -F --report_gbits {server_ip}
+  
+---------------------------------------------------------------------------------------
+                    Send BW Test
+ Dual-port       : OFF          Device         : rocep18s0f0
+ Number of qps   : 1            Transport type : IB
+ Connection type : RC           Using SRQ      : OFF
+ PCIe relax order: ON
+ ibv_wr* API     : OFF
+ TX depth        : 128
+ CQ Moderation   : 1
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ GID index       : 3
+ Max inline data : 0[B]
+ rdma_cm QPs     : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0xff0000 PSN 0xe4233a
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:192:168:01:03
+ remote address: LID 0000 QPN 0xff02fe PSN 0xdbbe61
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:192:168:01:02
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      1000             9.81               9.81               0.018715
+---------------------------------------------------------------------------------------
+````
+### Change DRBD to use RDMA for Synchronization on cluster node 01 and 02
+````
+# Add RDMA interfaces to cluster nodes
+linstor node interface create {node_name} rdma1 {rdma_nic_ip}
+linstor node interface create {node_name} rdma1 {rdma_nic_ip}
+linstor node interface create {node_name} rdma2 {rdma_nic_ip}
+linstor node interface create {node_name} rdma2 {rdma_nic_ip}
+# Use the following script to update the resources with two RDMA sync paths
+#!/bin/bash
 
-At this stage, all nodes should see ceph storage pools  
-![image](https://github.com/user-attachments/assets/7d615686-6b11-4a44-ac92-f2de24b3a0de)
+# Read the output of linstor command
+resources=$(linstor --no-utf8 resource list  | awk 'NR>3 {print $2}' | sort -u)
+
+for res in $resources; do
+    echo "Processing resource: $res"
+    linstor resource-connection path create {node1_name} {node2_name} $res path1 rdma1 rdma1
+    linstor resource-connection path create {node1_name} {node2_name} $res path2 rdma2 rdma2
+done
+````
 
 ## Kubernetes Cluster Installation ##
 Following VMs are used for K8s cluster:
