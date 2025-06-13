@@ -1,0 +1,23 @@
+﻿
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp
+spec:
+  nodeSelector:
+    matchLabels:
+      rack: rack101 # nodes with this label will have BGP enabled
+  bgpInstances:
+  - name: "instance-65013"
+    localASN: 65013
+    peers:
+    - name: "peer-65012-fw"
+      peerASN: 65012
+      peerAddress: {bgp_peer_ip}
+      peerConfigRef:
+        name: "cilium-peer"
+
+
+
+
+

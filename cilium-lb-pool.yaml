@@ -1,0 +1,10 @@
+﻿apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "lb-pool-01"
+spec:
+  blocks:
+  - start: "{ip_address}" # start IP
+    stop: "{ip_address}" # end IP
+  allowFirstLastIPs: "No"
+ 
