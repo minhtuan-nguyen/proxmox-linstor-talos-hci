@@ -118,8 +118,8 @@ talos-wk-03
 Talos Linux is used due to its declarative (config via .yaml file), security (no direct shell access)  
 ### Preparation ###
 * Talos ISO  
-Since Talos will be running as a VM on Proxmox, qemu agent needs to be added to be able to see the information from Proxmox. This is optional. Talos ISO can be generated from https://factory.talos.dev  
-![image](https://github.com/user-attachments/assets/dbd968e0-4d5f-411e-972f-0c426202a141)  
+Since Talos will be running as a VM on Proxmox, qemu agent and drbd plugin need to be added to be able to see the information from Proxmox and connect to Linstor for persistent storage. This is optional. Talos ISO can be generated from https://factory.talos.dev  
+![image](https://github.com/user-attachments/assets/a2c4e250-a948-4d1f-835a-6e145e62c581)  
 Record the image ID and download the iso  
 Bootup the servers using talos iso.  
 ![image](https://github.com/user-attachments/assets/4ecf3e36-a3cc-4461-ada7-ea61b70ed00d)  
@@ -202,77 +202,46 @@ When generating the configuration files for a Talos Linux cluster, it is recomme
   ````
   # Enable BGP and direct routing mode since our nodes are in the same L2 domain
   helm upgrade cilium cilium/cilium --namespace kube-system --reuse-values --set bgpControlPlane.enabled=true --set routingMode=native --set autoDirectNodeRoutes=true --set loadBalancer.mode=dsr
+  kubectl -n kube-system rollout restart ds/cilium
   kubectl apply -f .\cilium-bgp-peer.yaml
-  kubectl apply -f .\cilium-bgp-pod.yaml
+  kubectl apply -f .\cilium-bgp.yaml
   kubectl apply -f .\cilium-bgp-adv.yaml
   # Expose Cilium Hubble UI service
   kubectl delete service/hubble-ui -n kube-system
   kubectl expose deployment hubble-ui --type="LoadBalancer" --port 80 --target-port=8081 -n kube-system
   ````
   Hubble UI should be accessible from network
-  ![image](https://github.com/user-attachments/assets/015bc0ea-3552-42ee-b48c-30483aafca5b)  
-  ![image](https://github.com/user-attachments/assets/da4c372b-ab50-4d4c-811b-ff011f095410)
-### Deploy Ceph CSI RBD for K8s ###
+  ![image](https://github.com/user-attachments/assets/7217c4c0-947a-404f-9f5b-c0100ef83ed5)
+  ![image](https://github.com/user-attachments/assets/4914a00a-a2ca-44d9-af14-470f5da4ef41)
+
+### Deploy Linstor CSI  ###
 ````
-# Create an authentication key
-ceph auth get-or-create client.{key_name} mon 'profile rbd' osd 'profile rbd pool={ceph_pool}' mgr 'profile rbd pool={ceph_pool}'
-# Record the key
-# Collect Ceph monitors info
-ceph mon dump
-# It will show IPs of ceph monitors
-epoch 3
-fsid 567056cb-ecaa-4176-96d1-6dc007679b7e
-last_changed 2025-05-10T21:14:07.043548+0200
-created 2025-05-10T20:51:04.180710+0200
-min_mon_release 19 (squid)
-election_strategy: 1
-0: [v2:172.49.172.184:3300/0,v1:172.49.172.184:6789/0] mon.srv01
-1: [v2:172.49.172.185:3300/0,v1:172.49.172.185:6789/0] mon.srv02
-2: [v2:172.49.172.186:3300/0,v1:172.49.172.186:6789/0] mon.srv03
-dumped monmap epoch 3
+  # Official guide: https://piraeus.io/docs/stable/tutorial/get-started/#prerequisites
+  # Install piraeus operator
+  kubectl apply --server-side -k "https://github.com/piraeusdatastore/piraeus-operator//config/default?ref=v2.8.1" 
+  # Apply DRBD-parameters for Talos Linux
+  kubectl apply -f .\talos-loader-override.yaml
+  # Install kubectl-linstor plugin
+  https://github.com/piraeusdatastore/kubectl-linstor
+  # Deploy linstor pods
+  kubectl apply -f .\linstor-cluster.yaml
+  ````
+  After 10-15 minutes, the pods should all be in running status and ready for next steps
+ ![image](https://github.com/user-attachments/assets/db4cb0ce-790a-4953-988b-e86084d5717c)
+
 ````
-Update rollout files according to your design. In this setup, Ceph CSI plugin will be installed under namespace ceph-csi-rbd
-````
-# After updating the file, apply the files in order
-# Official guide: https://docs.ceph.com/en/latest/rbd/rbd-kubernetes/
-1. csi-provisioner-rbac.yaml
-2. csi-nodeplugin-rbac.yaml
-3. ceph-csi-config.yaml
-4. ceph-config.yaml
-5. ceph-csi-encryption-kms-config.yaml
-6. ceph-csi-rbd-secret
-7. csi-rbdplugin-provisioner.yaml
-8. csi-rbdplugin.yaml
-# Create StorageClass
-kubectl apply -f ceph-rbd-sc.yaml
-kubectl apply -f ceph-rbd-pvc
+# Use host network to connect to Linstor controller
+kubectl apply -f .\linstor-host-net.yaml
+# Create storage class
+kubectl apply -f .\linstor-sc.yaml
+# Create persistent volume claim
+kubectl apply -f .\linstor-pv.yaml
 ````
 Storage class is created and test PVC in bound status
-![image](https://github.com/user-attachments/assets/f87ba8c4-ab50-4ddc-8610-4cf40e7504e2)  
-![image](https://github.com/user-attachments/assets/832c435e-b7f6-48ab-a316-23041c083186)  
+![image](https://github.com/user-attachments/assets/06725a8c-203b-4b2a-aa08-9f98a63297bb)
+![image](https://github.com/user-attachments/assets/79079704-e081-45f5-99dd-9c650e96d8b4)
 
-## Bonus ##
-Google has recently released `kubectl-ai` to help managing and learning K8s much more interactive and easier.
-````
-# Install kubectl-ai
-# You can easily install kubectl-ai from https://github.com/GoogleCloudPlatform/kubectl-ai
-# If you have paid version OpenAI, Grok,...you can create api key and start using the tool.
-# Google also provide a trial https://aistudio.google.com/
-````
-After the installation, you can run the tool with `kubectl-ai --model gemini-2.5-flash-preview-04-17` and start interacting with it.  
-A health check question:  
-![image](https://github.com/user-attachments/assets/67a29aef-245a-4502-817f-7244726f508a)  
-A more advanced question:
-![image](https://github.com/user-attachments/assets/cfd01b46-c263-4ce0-aa91-7f017c8e71ae)  
-On the first try, the model try a command but can not find a result.
-![image](https://github.com/user-attachments/assets/0bd04c3c-de32-4410-9c6d-0d182b19c049)  
-It starts "thinking" and try further:
-![image](https://github.com/user-attachments/assets/79b4a92c-d2da-4a9e-b14e-ea51c2572577)  
-The tool can also generate and apply configuration:  
-![image](https://github.com/user-attachments/assets/c4bc25eb-4715-47db-b083-208051f11104)  
-![image](https://github.com/user-attachments/assets/cb983c28-e998-4425-94d7-176e4003946b)  
-![image](https://github.com/user-attachments/assets/214c9395-17d2-4074-8969-bcd828c08ced)  
-![image](https://github.com/user-attachments/assets/be2b3b29-ab00-41c9-8b54-5072b221a63a)
+
 
 
 
