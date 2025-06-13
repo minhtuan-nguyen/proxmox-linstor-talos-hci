@@ -6,7 +6,7 @@ A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node (as 
 - Talos Linux (Kubernetes Cluster)
 - Cilium (CNI plugin for Kubernetes)
 ## Proxmox Installation
-* Hardware Nodes
+* Hardware Nodes  
   The test environment consists of 03 HPE servers
   - Proxmox is installed on a boot device `/dev/sda`
   - The rest of the disks used for Linstor in RAID 10 setup
@@ -15,7 +15,7 @@ A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node (as 
 
 * Setup Proxmox Network
   To make the setup more light-weight, management and VM traffic will be combined 
-  - **Management Network & VM Traffic**: 2x 1Gbps connections in LACP mode
+  - **Management Network & VM Traffic**: 2x 10Gbps connections in LACP mode
   - **DRBD Sync Traffic**: 2 x 10Gbps connections. To improve synchronization performance, RDMA will be used. 
   ![image](https://github.com/user-attachments/assets/d385b586-51b2-48c9-96cc-3db03c5a786c)
 
@@ -239,7 +239,15 @@ kubectl apply -f .\linstor-pv.yaml
 ````
 Storage class is created and test PVC in bound status
 ![image](https://github.com/user-attachments/assets/06725a8c-203b-4b2a-aa08-9f98a63297bb)
-![image](https://github.com/user-attachments/assets/79079704-e081-45f5-99dd-9c650e96d8b4)
+![image](https://github.com/user-attachments/assets/79079704-e081-45f5-99dd-9c650e96d8b4)  
+### Basic commands ###
+* List linstor nodes  
+`linstor node list`  
+![image](https://github.com/user-attachments/assets/8d01aa51-af27-4173-849b-6b3318e03bbd)  
+* List all resource  
+`linstor resource list`  
+![image](https://github.com/user-attachments/assets/041e6036-bd20-45f5-89c3-18f539819e50)  
+
 
 
 
