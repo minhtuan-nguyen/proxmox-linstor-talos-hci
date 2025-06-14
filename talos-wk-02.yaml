@@ -78,10 +78,6 @@ machine:
             - interface: ens18
               dhcp: false
               addresses:
-                  - 172.49.172.192/24
-            - interface: ens19
-              dhcp: false
-              addresses:
                   - 10.49.172.192/24
               routes:
                   - network: 0.0.0.0/0
@@ -206,7 +202,7 @@ machine:
     # Used to provide instructions for installations.
     install:
         disk: /dev/sda # The disk used for installations.
-        image: factory.talos.dev/metal-installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.10.1 # Allows for supplying the image used to perform the installation.
+        image: factory.talos.dev/metal-installer/6adc7e7fba27948460e2231e5272e88b85159da3f3db980551976bf9898ff64b:v1.10.4 # Allows for supplying the image used to perform the installation.
         wipe: false # Indicates if the installation disk should be wiped at installation time.
         
         # # Look up disk using disk attributes like model, size, serial and others.
@@ -385,6 +381,12 @@ machine:
     #           format: json_lines # Logs format.
 
     # # Configures the kernel.
+    kernel:
+        modules:
+            - name: drbd
+              parameters:
+                  - usermod_helper=disabled
+            - name: drbd_transport_tcp
     # kernel:
     #     # Kernel modules to load.
     #     modules:
