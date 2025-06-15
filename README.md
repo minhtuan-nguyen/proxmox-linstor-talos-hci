@@ -11,7 +11,8 @@ A fully working 02 nodes HCI (Hyper Converged Infrastructure) with 3rd node (as 
   - Proxmox is installed on a boot device `/dev/sda`
   - The rest of the disks used for Linstor in RAID 10 setup
   - Network overview  
-    ![image](https://github.com/user-attachments/assets/eb9bcdd1-eb65-4dc2-b7d5-c277c0a5b9f4)
+   ![image](https://github.com/user-attachments/assets/3bd2031a-672d-4fb9-a964-12e29b46ba20)
+
 
 * Setup Proxmox Network
   To make the setup more light-weight, management and VM traffic will be combined 
